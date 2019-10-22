@@ -1,0 +1,1111 @@
+data PitcherStatFinal;
+
+Player = '';
+
+Date = .;
+
+Opponent = '';
+
+GameStarted = .;
+
+Win = .;
+
+Loss = .;
+
+Save = .;
+
+BlownSave = .;
+
+Hold = .;
+
+InningsPitched = '';
+
+BattersFaced = .;
+
+Hits = .;
+
+Runs = .;
+
+EarnedRuns = .;
+
+HomeRuns = .;
+
+Walks = .;
+
+IntentionalWalks = .;
+
+HitByPitch = .;
+
+Strikouts = .;
+
+run;
+
+ 
+
+data HitterStatFinal;
+
+Player = '';
+
+Date = .;
+
+Opponent = '';
+
+AtBats = .;
+
+Runs = .;
+
+Hits = .;
+
+Doubles = .;
+
+Triples = .;
+
+HomeRuns = .;
+
+RunsBattedIn = .;
+
+StolenBases = .;
+
+CaughtStealing = .;
+
+Walks = .;
+
+HitByPitch = .;
+
+Strikeouts = .;
+
+run;
+
+ 
+
+ 
+
+proc import out= Players                                                                                                  
+
+datafile = "\filepath\ActiveRoster.csv"
+
+dbms = CSV replace;                                                                                                                                                            
+
+getnames = yes;
+
+datarow=3;
+
+guessingrows=3000;
+
+run;
+
+ 
+
+proc sql;
+
+create table players2 as
+
+select
+
+'Active Players'n,pos,
+
+scan('Active Players'n,1,' ') as First,
+
+scan('Active Players'n,2,' ') as Last,
+
+mdy(input(scan(substr(scan('Active Players'n,3,' '),2,length(scan('Active Players'n,3,' '))-2),1,'.'),2.),
+
+     input(scan(substr(scan('Active Players'n,3,' '),2,length(scan('Active Players'n,3,' '))-2),2,'.'),2.),
+
+     year(today()))            as Start1 format = mmddyy10.,
+
+ 
+
+ 
+
+mdy(input(scan(substr(scan('Active Players'n,2,','),2,length(scan('Active Players'n,2,','))-1),1,'.'),2.),
+
+     input(scan(substr(scan('Active Players'n,2,','),2,length(scan('Active Players'n,2,','))-1),2,'.'),2.),
+
+     year(today()))            as Start2 format = mmddyy10.
+
+ 
+
+ 
+
+ 
+
+from players;
+
+ 
+
+ 
+
+ 
+
+proc sql;create table players3 as
+
+select
+
+case when substr(first,1,2) = '**' then substr(first,3,length(first)-2)
+
+     when substr(first,1,1) = '*' or substr(first,1,1) = '#' then substr(first,2,length(first)-1)
+
+           else first end as name2,
+
+case when substr(first,1,2) = '**' then '60 Day DL'
+
+     when substr(first,1,1) = '*'  then 'DL'
+
+     when substr(first,1,1) = '#'  then 'Not On Active Roster'
+
+     else '' end as Alerts,
+
+last,
+
+pos,Start1,Start2
+
+ 
+
+from players2;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+proc sql;
+
+create table Players4 as
+
+select
+
+Cat(cats(name2)," ",cats(last))   as Name,
+
+pos,
+
+Start1,Start2
+
+from players3;
+
+ 
+
+proc sql;
+
+create table Alerts as
+
+select
+
+Cat(cats(name2)," ",cats(last))   as Name,
+
+pos,
+
+Alerts
+
+from players3 where alerts <> '';
+
+ 
+
+ 
+
+Proc sql;
+
+create table StartersToday as
+
+select
+
+Name as 'Name'n
+
+from players4 where Start1 = today() or Start2 = today();
+
+ 
+
+ 
+
+proc sql;
+
+create table PosPlayers as
+
+select
+
+Name
+
+from players4 where pos ne 'P';
+
+ 
+
+proc sql;
+
+create table Pitchers as
+
+select
+
+Name
+
+from players4 where pos = 'P';
+
+ 
+
+ 
+
+ 
+
+ 
+
+ods graphics off;
+
+ods csv file="\filepath\PosPlayers.csv"
+
+          options(sheet_name="Data" frozen_headers = '1');
+
+proc print data=players4  noobs;
+
+where pos ne 'P';
+
+run;
+
+ods excel close;
+
+ 
+
+ods graphics off;
+
+ods csv file="filepath\Pitchers.csv"
+
+          options(sheet_name="Data" frozen_headers = '1');
+
+proc print data=players4  noobs;
+
+where pos eq 'P';
+
+run;
+
+ods excel close;
+
+ 
+
+ 
+
+ 
+
+/* Pitchers Section */
+
+ 
+
+proc import out= PitcherStats                                                                                                  
+
+datafile = "Filepath\PitcherFinal.csv"
+
+dbms = CSV replace;
+
+guessingrows=3000;  
+
+getnames = yes;
+
+run;
+
+ 
+
+data PitcherStats;
+
+set PitcherStats;
+
+num = _n_;
+
+drop Var1;
+
+run;
+
+ 
+
+proc sql;
+
+create table PitcherList as select distinct player from pitcherstats;
+
+ 
+
+data PitcherList;
+
+set PitcherList;
+
+rownum = _n_;
+
+run;
+
+ 
+
+proc sql noprint;
+
+select count(player) into :Max from PitcherList;
+
+ 
+
+ 
+
+ 
+
+%macro loop;
+
+%Do I = 1 %to &Max;
+
+ 
+
+proc sql noprint;
+
+select Player into :PlayerName
+
+from PitcherList
+
+where rownum = &I;
+
+ 
+
+proc sql noprint;
+
+select count(player) into:obcount
+
+from pitcherstats
+
+where player = "&PlayerName";
+
+%Put &obcount;
+
+ 
+
+%LEt Starts = %eval((&obcount/18);
+
+%Put &Starts;
+
+ 
+
+     %Do X = 1 %to &Starts;
+
+           proc sql noprint;
+
+           select Startnum1,Endnum1 into :Startnum,:Endnum
+
+           from IterationTable where Num = &X;
+
+ 
+
+           proc sql;
+
+           create table P1 as
+
+           select Player,'0'n from PitcherStats where player = "&PlayerName";
+
+ 
+
+           Data p2;
+
+           set p1;
+
+           row = _n_;
+
+           run;
+
+ 
+
+           proc sql;
+
+           create table p3 as
+
+           select Player,'0'n,row from p2
+
+           where row between &StartNum and &EndNum;
+
+ 
+
+           data p3;set p3;rownum= _n_;drop row;run;
+
+           proc sql noprint;select '0'n into :Date from p3 where rownum = 1;
+
+           proc sql noprint;select '0'n into :Opp from p3 where rownum = 2;
+
+           proc sql noprint;select '0'n into :Innings from p3 where rownum = 9;
+
+           %put &DAte &opp &Innings;
+
+           data p3;set p3;where rownum ne 2;run;
+
+ 
+
+           proc sql;
+
+           create table p4 as
+
+           select input('0'n,10.) as Stat
+
+           from p3
+
+           where rownum gt 2;
+
+ 
+
+           proc transpose data=p4 out=p5;run;
+
+          
+
+           data StartStats;
+
+           set p5;
+
+           rename
+
+COL1 = GameStarted
+
+COL2 = Win
+
+COL3 = Loss
+
+COL4 = Save
+
+COL5 = BlownSave
+
+COL6 = Hold
+
+COL7 = InningsPitched
+
+COL8 =  BattersFaced
+
+COL9 =  Hits
+
+COL10 = Runs
+
+COL11 = EarnedRuns
+
+COL12 = HomeRuns
+
+COL13 = Walks
+
+COL14 = IntentionalWalks
+
+COL15 = HitByPitch
+
+COL16 = Strikeouts
+
+           ;run;
+
+ 
+
+ 
+
+proc sql;
+
+create table PitcherStatFinal as
+
+select
+
+"&PlayerName" as Player,
+
+mdy(input(scan("&Date",1,'.'),2.),input(scan("&Date",2,'.'),2.),year(today())) as Date,
+
+"&Opp"         as Opponent,
+
+GameStarted,
+
+Win,
+
+Loss,
+
+Save,
+
+BlownSave,
+
+Hold,
+
+"&Innings" as InningsPitched,
+
+BattersFaced,
+
+Hits,
+
+Runs,
+
+EarnedRuns,
+
+HomeRuns,
+
+Walks,
+
+IntentionalWalks,
+
+HitByPitch,
+
+Strikeouts
+
+from StartStats
+
+union all select * from PitcherStatFinal where player ne ''
+
+;
+
+ 
+
+ 
+
+           %Put &Startnum &Endnum;
+
+     %end;
+
+ 
+
+%end;
+
+%mend;
+
+%loop;
+
+ 
+
+proc sql;
+
+create table PitcherStatFinal2 as
+
+select
+
+Player,
+
+Date format = mmddyy10.,
+
+* from PitcherStatFinal;
+
+ 
+
+proc sql;
+
+create table LastStart as
+
+select Distinct Player,Date from pitcherstatfinal2 group by Player having date = max(date);
+
+ 
+
+Proc sql;
+
+create table LastStartTable as
+
+select
+
+t1.Player,t1.Date,t2.* from LastStart t1 left join PitcherStatFinal2 t2 on (t1.player = t2.player) and (t1.date = t2.date);
+
+ 
+
+proc sql;
+
+create table YesterdayStarts as
+
+select * from LastStartTable where Date = today()-1;
+
+ 
+
+ 
+
+ 
+
+/* Position Players */
+
+ 
+
+ 
+
+proc import out= HitterStats                                                                                                   
+
+datafile = "Filepath\PosPlayerFinal.csv"
+
+dbms = CSV replace;
+
+guessingrows=3000;  
+
+getnames = yes;
+
+run;
+
+ 
+
+data HitterStats;
+
+set HitterStats;
+
+num = _n_;
+
+drop Var1;
+
+run;
+
+ 
+
+proc sql;
+
+create table HitterList as select distinct player from Hitterstats;
+
+ 
+
+data HitterList;
+
+set HitterList;
+
+rownum = _n_;
+
+run;
+
+ 
+
+proc sql noprint;
+
+select count(player) into :Max from HitterList;
+
+ 
+
+ 
+
+ 
+
+%macro loop2;
+
+%Do I = 1 %to &Max;
+
+ 
+
+proc sql noprint;
+
+select Player into :PlayerName
+
+from HitterList
+
+where rownum = &I;
+
+ 
+
+proc sql noprint;
+
+select count(player) into:obcount
+
+from Hitterstats
+
+where player = "&PlayerName";
+
+%Put &obcount;
+
+ 
+
+%LEt Games = %eval((&obcount/14);
+
+%Put &Games;
+
+ 
+
+     %Do X = 1 %to &Games;
+
+           proc sql noprint;
+
+           select Startnum2,Endnum2 into :Startnum,:Endnum
+
+           from IterationTable where Num = &X;
+
+ 
+
+           proc sql;
+
+           create table P1 as
+
+           select Player,'0'n from HitterStats where player = "&PlayerName";
+
+ 
+
+           Data p2;
+
+           set p1;
+
+           row = _n_;
+
+           run;
+
+ 
+
+           proc sql;
+
+           create table p3 as
+
+           select Player,'0'n,row from p2
+
+           where row between &StartNum and &EndNum;
+
+ 
+
+           data p3;set p3;rownum= _n_;drop row;run;
+
+           proc sql noprint;select '0'n into :Date from p3 where rownum = 1;
+
+           proc sql noprint;select '0'n into :Opp from p3 where rownum = 2;
+
+           %put &DAte &opp;
+
+ 
+
+           data p3;set p3;where rownum ne 2;run;
+
+ 
+
+           proc sql;
+
+           create table p4 as
+
+           select input('0'n,10.) as Stat
+
+           from p3
+
+           where rownum gt 2;
+
+ 
+
+           proc transpose data=p4 out=p5;run;
+
+          
+
+           data StartStats;
+
+           set p5;
+
+           rename
+
+COL1 =  AtBats
+
+COL2 =  Runs
+
+COL3 =  Hits
+
+COL4 =  Doubles
+
+COL5 =  Triples
+
+COL6 =  HomeRuns
+
+COL7 =  RunsBattedIn
+
+COL8 =  StolenBases
+
+COL9 =  CaughtStealing
+
+COL10 = Walks
+
+COL11 = HitByPitch
+
+COL12 = Strikeouts
+
+           ;run;
+
+ 
+
+ 
+
+proc sql;
+
+create table HitterStatFinal as
+
+select
+
+"&PlayerName" as Player,
+
+mdy(input(scan("&Date",1,'.'),2.),input(scan("&Date",2,'.'),2.),year(today())) as Date,
+
+"&Opp"         as Opponent,
+
+AtBats,
+
+Runs,
+
+Hits,
+
+Doubles,
+
+Triples,
+
+HomeRuns,
+
+RunsBattedIn,
+
+StolenBases,
+
+CaughtStealing,
+
+Walks,
+
+HitByPitch,
+
+Strikeouts
+
+from StartStats
+
+union all select * from HitterStatFinal where player ne ''
+
+;
+
+ 
+
+ 
+
+           %Put &Startnum &Endnum;
+
+     %end;
+
+ 
+
+%end;
+
+%mend;
+
+%loop2;
+
+ 
+
+proc sql;
+
+create table HitterStatFinal2 as
+
+select
+
+Player,
+
+Date format = mmddyy10.,
+
+* from HitterStatFinal;
+
+ 
+
+proc sql;
+
+create table LastGame as
+
+select Distinct Player,Date from Hitterstatfinal2 group by Player having date = max(date);
+
+ 
+
+Proc sql;
+
+create table LastGameTable as
+
+select
+
+t1.Player,t1.Date,t2.* from LastGame t1 left join HitterStatFinal2 t2 on (t1.player = t2.player) and (t1.date = t2.date);
+
+ 
+
+proc sql;
+
+create table YesterdayGames as
+
+select * from LastGameTable where Date = today()-1;
+
+ 
+
+Proc sql;
+
+create table YesterdayGamesSum as
+
+select
+
+'Hard Eight Hitters' as Player,
+
+sum(atbats) as AtBats,
+
+sum(hits) as Hits,
+
+round(sum(hits)/sum(atbats),.001)  as BA,
+
+sum(Doubles) as Doubles,
+
+sum(Triples) as Triples,
+
+sum(HomeRuns) as Dingers,
+
+sum(Runsbattedin) as RBI,
+
+sum(stolenbases) as SB,
+
+sum(walks) as BB,
+
+sum(strikeouts) as K
+
+from yesterdaygames;
+
+ 
+
+ 
+
+ 
+
+/*Position Player End*/
+
+ 
+
+ 
+
+/*SEt up email to reflect no starts or games yesterday if necessary*/
+
+%Macro EmailSend;
+
+ 
+
+Proc sql noprint;
+
+select count(player) into :NumPitchers from YesterdayStarts;
+
+ 
+
+data yesterday;
+
+yesterday = today()-1;
+
+run;
+
+ 
+
+proc sql noprint;
+
+select yesterday format = mmddyy10. into :Yest from yesterday;
+
+ 
+
+%Let NumPitchers = %sysfunc(cats(&NumPitchers));
+
+%Put Yesterday &NumPitchers pitcher(s) pitched yesterday;
+
+ 
+
+data BanditMessage;
+
+Summary = "Yesterday &NumPitchers pitcher(s) pitched";
+
+run;
+
+ 
+
+ 
+
+proc sql noprint;
+
+select count(name) into :NumAlerts from alerts;
+
+%LET NumAlerts = %sysfunc(cats(&NumAlerts));
+
+%Put &NumAlerts;
+
+ 
+
+ 
+
+ 
+
+%if &NumAlerts  > = 1 %then %do;
+
+ 
+
+     ods _all_ close;
+
+     filename message email
+
+     to=("XXXXXX")
+
+     from ="XXXXXXX"
+
+     subject = ("Hard Eights Baseball Stats for &Yest")
+
+     ct="text/html";
+
+     ods html body = message style = sasweb rs=none;
+
+     title "Active Roster Alerts";
+
+     proc report data=Alerts nocenter;
+
+     run;
+
+     title "On the Bump Today";
+
+     proc report data=StartersToday nocenter;
+
+     run;
+
+     title "Pitching Stats from Yesterday";
+
+     proc report data=YesterdayStarts nocenter;
+
+     run;
+
+     title "Hitting Summary from Yesterday";
+
+     proc report data=YesterdayGamesSum nocenter;
+
+     run;
+
+     title "Hitting Stats from Yesterday";
+
+     proc report data=YesterdayGames nocenter;
+
+     run;
+
+     ods html close;
+
+     ods listing;
+
+     quit;
+
+%end;
+
+ 
+
+%else %do;
+
+ 
+
+     ods _all_ close;
+
+     filename message email
+
+     to=("XXXXX")
+
+     from ="XXXXXX"
+
+     subject = ("Hard Eights Baseball Stats for &Yest")
+
+     ct="text/html";
+
+     ods html body = message style = sasweb rs=none;
+
+     title "On the Bump Today";
+
+     proc report data=StartersToday nocenter;
+
+     run;
+
+     title "Pitching Stats from Yesterday";
+
+     proc report data=YesterdayStarts nocenter;
+
+     run;
+
+     title "Hitting Summary from Yesterday";
+
+     proc report data=YesterdayGamesSum nocenter;
+
+     run;
+
+     title "Hitting Stats from Yesterday";
+
+     proc report data=YesterdayGames nocenter;
+
+     run;
+
+     ods html close;
+
+     ods listing;
+
+     quit;
+
+%end;
+
+ 
+
+%mend;
+
+%EmailSend;
