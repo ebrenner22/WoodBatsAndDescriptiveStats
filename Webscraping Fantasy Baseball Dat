@@ -1,0 +1,130 @@
+pip install requests beautifulsoup4
+import requests
+import re
+from bs4 import BeautifulSoup, SoupStrainer
+import pandas as pd
+from lxml import html
+from random import randint
+import numpy as np
+--
+#This URL will be the URL that your login form points to with the "action" tag.
+POSTLOGINURL = 'http://www.onroto.com'
+#This URL is the page you actually want to pull down with requests.
+REQUESTURL = 'http://baseball5.onroto.com/baseball/webnew/display_roster.pl?LEOLEAGUE+3+1'
+
+# Log in Info
+payload = {
+    'user': 'XXXX',
+    'pass': 'XXXX'
+}
+--
+#base code (works for whole list)
+with requests.Session() as session:
+    post = session.post(POSTLOGINURL, data=payload)
+    r = session.get(REQUESTURL)
+    data = r.text
+    soup = BeautifulSoup(data)
+--
+table = soup.find('table',{'class':'Active_table_1 team_2010126801'})
+df = pd.read_html(str(table))
+
+df2=pd.concat(df)
+
+
+import os
+dirpath = "Filepath"
+filename = "Players.csv"
+
+filepath = os.path.join(dirpath, filename)
+df2.to_csv(filepath)
+--
+#create lists of Player Links and Names with loop through Active Players Table
+
+PlayerLinkTable = []
+for link in table.find_all('a',href=re.compile('^http://baseball5.onroto.com/baseball/webnew/display_player_profile.')):
+    PlayerLinkTable.append(link.get('href'))
+    
+PlayerNameTable = []
+for link in table.find_all('a',href=re.compile('^http://baseball5.onroto.com/baseball/webnew/display_player_profile.')):
+    PlayerNameTable.append(link.text.strip())
+
+#Create DataFrames from the links and player names
+PlayerLinkTable = pd.DataFrame(PlayerLinkTable)
+PlayerLinkTable['Link'] = PlayerLinkTable[0].str.split('&session').str[0]
+PlayerLinkTable['ID'] = PlayerLinkTable.reset_index().index
+
+
+
+PlayerNameTable = pd.DataFrame(PlayerNameTable)
+PlayerNameTable['Name'] = PlayerNameTable[0].str.replace('*', '')
+PlayerNameTable['Name2'] = PlayerNameTable['Name'].str.replace('#', '')
+PlayerNameTable['ID'] = PlayerNameTable.reset_index().index
+
+
+PlayersMaster = pd.merge(PlayerNameTable, PlayerLinkTable, on='ID')
+PlayersMaster = PlayersMaster.drop(['ID','0_y','Name','0_x'], axis=1)
+PlayersMaster['Name'] = PlayersMaster['Name2']
+PlayersMaster = PlayersMaster.drop(['Name2'], axis=1)
+PlayersMaster
+
+
+# Use to import the Pitchers and Position Players
+# then join to the position field from the cleaned excel book
+
+dirpath = "FilePath"
+filename = "Pitchers.csv"
+
+filepathPitchers = os.path.join(dirpath, filename)
+
+dirpath = "/Filepath"
+filename = "PosPlayer.csv"
+
+filepathPosPlayer = os.path.join(dirpath, filename)
+
+
+PitcherKeywords = pd.read_csv(filepathPitchers)
+PosPlayerKeywords = pd.read_csv(filepathPosPlayer)
+
+
+Pitchers = []
+for Link, row in PitcherLoop.iterrows():
+
+    #This URL will be the URL that your login form points to with the "action" tag.
+    POSTLOGINURL = 'http://www.onroto.com'
+    #This URL is the page you actually want to pull down with requests.
+    REQUESTURL = row['Link']
+    
+
+    # Log in Info
+    payload = {
+    'user': 'XXXX',
+    'pass': 'XXXX'
+    }
+
+    #base code (works for whole list)
+    with requests.Session() as session:
+        Post = session.post(POSTLOGINURL, data=payload)
+        r = session.get(REQUESTURL)
+        data = r.text
+        soup = BeautifulSoup(data)
+        
+    #Set up columns
+    laststats = soup.find('table',{'id':'last_hidden'})
+    df = pd.read_html(str(laststats))
+    StatHeader=pd.concat(df)
+    
+    Stats = []
+    for data in laststats.find_all('td'):
+        Stats.append(data.get_text())
+    PitcherStats = pd.DataFrame(Stats)
+    PitcherStats['Player'] = row['Player']
+    Pitchers.append(PitcherStats)
+Pitchers = pd.concat(Pitchers)
+Pitchers
+
+dirpath = "Filepath"
+filename = "PitcherFinal.csv"
+
+filepath = os.path.join(dirpath, filename)
+Pitchers.to_csv(filepath)
+	
